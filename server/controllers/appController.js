@@ -4,16 +4,20 @@ import jwt from 'jsonwebtoken'
 import ENV from '../config.js'
 import otpGenerator from 'otp-generator'
 
+
 /** middleware for verify user */
 export async function verifyUser(req, res, next){
     try {
-        const { username } = req.method == "GET" ? req.body : req.body;
-        //check the user existence
-        let exist = await UserModel.findOne({ username })
-        if (!exist) return res.status(404).send({ error: "Can't find User!" })
-        next()
+        
+        const { username } = req.method == "GET" ? req.query : req.body;
+
+        // check the user existance
+        let exist = await UserModel.findOne({ username });
+        if(!exist) return res.status(404).send({ error : "Can't find User!"});
+        next();
+
     } catch (error) {
-        return res.status(404).send({ error: "Authentication Error" })
+        return res.status(404).send({ error: "Authentication Error"});
     }
 }
 
@@ -197,11 +201,41 @@ export async function verifyOTP(req, res){
 // successfully redirect user when OTP is valid 
 /** GET: http://localhost:8080/api/createResetSession */
 export async function createResetSession(req, res){
-    res.json('createResetSession route')
+    if(req.app.locals.resetSession){
+        req.app.locals.resetSession = false; //allow access to this route only once
+        return res.status(201).send({ msg: "Access Granted!" })
+    }
+    return res.status(440).send({ error: "Session Expired!" })
 }
 
 // update the password when we have valid session
 /** PUT: http://localhost:8080/api/resetPassword */
 export async function resetPassword(req, res){
-    res.json('resetPassword route')
+
+    try {
+        if(!req.app.locals.resetSession) return res.status(404).send({ error: "Session Expired!" })
+        const { username, password } = req.body;
+        try {
+            UserModel.findOne({ username })
+            .then(user => {
+                bcrypt.hash(password, 10)
+                .then(hashedPassword =>{
+                    UserModel.updateOne({ username : user.username }, {password : hashedPassword}, (err, data)=>{
+                        if(err) throw err;
+                        return res.status(201).send({ msg: "Record Updated Successfully...!" })
+                    })
+                })
+                .catch(e => {
+                    return res.status(500).send({ error: "Unable to hash Password...!" })
+                })
+            })
+            .catch(error => {
+                return res.status(404).send({ error: "Username not founnd...!" })
+            })
+        } catch (error) {
+            return res.status(500).send({ error })
+        }
+    } catch (error) {
+        return res.status(401).send({error})
+    }
 }

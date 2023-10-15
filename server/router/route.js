@@ -20,6 +20,6 @@ router.route('/createResetSession').get(controller.createResetSession); // Reset
 
 /** PUT Methods */
 router.route('/updateUser').put(Auth, controller.updateUser); // Update user details
-router.route('/resetPassword').put(controller.resetPassword); // reset password
+router.route('/resetPassword').put(controller.verifyUser, controller.resetPassword); // reset password
 
 export default router;
